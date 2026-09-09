@@ -1,0 +1,44 @@
+# CI/CD pipeline. You may read this file; it does NOT contain the grading tests.
+# It does contain a "validate" job that checks your user-data.yaml for syntax/schema errors.
+#   1) validate       checks your user-data.yaml against the cloud-init schema so you
+#                     get feedback on syntax/schema errors. Always runs.
+#
+# Your grade of record comes from the instructor-run batch, not from this pipeline.
+
+stages:
+  - validate
+  - grade
+
+validate:
+  stage: validate
+  image: ubuntu:26.04
+  before_script:
+    - apt-get update -qq
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y -qq cloud-init >/dev/null
+  script:
+    - echo "Validating submission/user-data.yaml ..."
+    - cloud-init schema --config-file submission/user-data.yaml
+    - |
+      if [ "$(head -n1 submission/user-data.yaml)" = "#cloud-config" ]; then
+        echo "first line is #cloud-config - OK"
+      else
+        echo "ERROR - the first line must be exactly #cloud-config"
+        exit 1
+      fi
+
+request-grade:
+  stage: grade
+  image: alpine:3.20
+  rules:
+    - if: "$GRADER_PROJECT_ID && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+  script:
+    - apk add --no-cache curl >/dev/null
+    - |
+      curl -sf -X POST \
+        -F "token=$CI_JOB_TOKEN" \
+        -F "ref=main" \
+        -F "variables[STUDENT_ID]=${LAB_STUDENT_ID:-$CI_PROJECT_NAME}" \
+        -F "variables[STUDENT_PATH]=$CI_PROJECT_PATH" \
+        -F "variables[STUDENT_SHA]=$CI_COMMIT_SHA" \
+        "$CI_API_V4_URL/projects/$GRADER_PROJECT_ID/trigger/pipeline"
+    - echo "Requested a preview grade - see the grader pipeline for results."

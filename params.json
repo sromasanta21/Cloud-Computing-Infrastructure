@@ -1,0 +1,11 @@
+{
+  "_note": "This placeholder is replaced with YOUR personalised values when your project is created.",
+  "extra_sudo_user": "sromasan",
+  "extra_package": "curl",
+  "marker_file": {
+    "path": "/var/lib/lab1/sromasan.marker",
+    "owner": "root:root",
+    "mode": "0644",
+    "must_contain": "Provisioned for sromasan"
+  }
+}

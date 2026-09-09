@@ -1,0 +1,26 @@
+#cloud-config
+users:
+  - name: ciuser
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+      -  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA5txpfNn6gNicMxa/BYRKRgEDFQTKNstlyz+lUOGHuK BOILERAD\sromasan@K210B02PC03
+
+  - name: sromasan
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+
+packages:
+  - nginx
+  - curl 
+
+write_files:
+  - path: /var/lib/lab1/sromasan.marker
+    owner: root:root
+    permissions: "0644"
+    content: | 
+      Provisioned for sromasan
