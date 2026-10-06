@@ -1,0 +1,76 @@
+---
+# playbooks/soc2_cc6_cc7.yml
+- name: Enforce SOC 2 Type II Logical Access & System Monitoring Controls
+  hosts: all
+  become: true
+  tasks:
+    # -------------------------------------------------------------------------
+    # SOC 2 CC6.1 & CC6.2: Logical Access & Sudo Accountability
+    # -------------------------------------------------------------------------
+    - name: Enforce strict sudo session timeouts and dedicated audit logging
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/99_soc2_logical_access
+        content: |
+          Defaults env_reset
+          Defaults timestamp_timeout=10
+          Defaults logfile="/var/log/soc2_sudo_operations.log"
+          Defaults passwd_tries=3
+        owner: root
+        group: root
+        mode: '0440'
+        validate: '/usr/sbin/visudo -cf %s'
+
+    - name: Restrict scheduled execution utilities (cron/at) to authorized roles
+      ansible.builtin.copy:
+        dest: "{{ item }}"
+        content: "root\n"
+        owner: root
+        group: root
+        mode: '0600'
+      loop:
+        - /etc/cron.allow
+        - /etc/at.allow
+
+    # -------------------------------------------------------------------------
+    # SOC 2 CC7.1 & CC7.2: System Operations & Immutable Audit Logging
+    # -------------------------------------------------------------------------
+    - name: Install enterprise auditing packages for change detection
+      ansible.builtin.apt:
+        name:
+          - auditd
+          - rsyslog
+        state: present
+        update_cache: yes
+
+    - name: Deploy immutable audit rules to track user identity and privilege modifications
+      ansible.builtin.copy:
+        dest: /etc/audit/rules.d/50-soc2-change-detection.rules
+        content: |
+          ## Clear existing rules
+          -D
+
+          ## Buffer size and failure mode (panic)
+          -b 8192
+          -f 2
+
+          ## Monitor critical identity files (SOC 2 CC6.1)
+          -w /etc/passwd -p wa -k soc2_identity_change
+          -w /etc/group -p wa -k soc2_identity_change
+          -w /etc/shadow -p wa -k soc2_identity_change
+
+          ## Monitor privilege escalation files (SOC 2 CC7.1)
+          -w /etc/sudoers -p wa -k soc2_privilege_elevation
+          -w /etc/sudoers.d/ -p wa -k soc2_privilege_elevation
+
+          ## Lock audit configuration against runtime modifications
+          -e 2
+        owner: root
+        group: root
+        mode: '0640'
+      notify: Restart auditd
+
+  handlers:
+    - name: Restart auditd
+      ansible.builtin.service:
+        name: auditd
+        state: restarted

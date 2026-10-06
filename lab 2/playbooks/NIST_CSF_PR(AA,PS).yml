@@ -1,0 +1,71 @@
+---
+# playbooks/nist_csf_pr_aa_ps.yml
+- name: Enforce NIST CSF PR.AA and PR.PS Operational Security Controls
+  hosts: all
+  become: true
+  vars:
+    pw_minlen: 14
+    lockout_deny: 3
+
+  tasks:
+    # -------------------------------------------------------------------------
+    # NIST CSF PR.AA: Identity Management & Authentication
+    # -------------------------------------------------------------------------
+    - name: Ensure libpam-pwquality is installed for credential complexity
+      ansible.builtin.apt:
+        name: libpam-pwquality
+        state: present
+        update_cache: yes
+
+    - name: Enforce strict minimum password length and credential aging
+      ansible.builtin.lineinfile:
+        path: /etc/security/pwquality.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        create: yes
+      loop:
+        - { regexp: '^#?\s*minlen', line: "minlen = {{ pw_minlen }}" }
+        - { regexp: '^#?\s*enforcing', line: "enforcing = 1" }
+
+    - name: Configure automated brute-force account throttling (pam_faillock)
+      ansible.builtin.lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        create: yes
+      loop:
+        - { regexp: '^#?\s*deny\s*=', line: "deny = {{ lockout_deny }}" }
+        - { regexp: '^#?\s*unlock_time\s*=', line: "unlock_time = 900" }
+        - { regexp: '^#?\s*even_deny_root', line: "even_deny_root" }
+
+    # -------------------------------------------------------------------------
+    # NIST CSF PR.PS: Platform Security & Configuration Baselines
+    # -------------------------------------------------------------------------
+    - name: Configure sysctl baseline platform hardening against spoofing
+      ansible.posix.sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: 'net.ipv4.ip_forward', value: '0' }
+        - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.tcp_syncookies', value: '1' }
+        - { name: 'net.ipv4.conf.all.rp_filter', value: '1' }
+
+    - name: Deploy automated security patch management (unattended-upgrades)
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Enable automatic daily security updates configuration
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+        owner: root
+        group: root
+        mode: '0644'
