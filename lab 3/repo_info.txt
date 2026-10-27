@@ -1,0 +1,15 @@
+Docker Hub Repository: sromasanta21/docsy
+
+--- Pull and Run Instructions ---
+
+1. v1.0.0 (Single-stage build):
+   docker pull sromasanta21/docsy:v1.0.0
+   docker run -d --name docsy-v1 -p 8080:8000 sromasanta21/docsy:v1.0.0
+
+2. v2.0.0 (Multi-stage, security-hardened build):
+   docker pull sromasanta21/docsy:v2.0.0
+   docker run -d --name docsy-v2 -p 8080:8080 sromasanta21/docsy:v2.0.0
+
+3. latest (Linked to v2.0.0):
+   docker pull sromasanta21/docsy:latest
+   docker run -d --name docsy-latest -p 8080:8080 sromasanta21/docsy:latest

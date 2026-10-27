@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1
+
+# ---- Stage 1: Build the static documentation site ----
+FROM python:3.13-slim AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    graphviz \
+    curl \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app
+COPY . /app
+
+RUN uv sync
+RUN uv run make -C docs html
+
+# ---- Stage 2: Serve via a secure, unprivileged lightweight server ----
+FROM nginxinc/nginx-unprivileged:alpine AS runtime
+
+# Copy compiled static HTML output into Nginx's web root
+COPY --chown=nginx:nginx --from=build /app/docs/build/html /usr/share/nginx/html
+
+EXPOSE 8080
+
+# Runs as the non-root 'nginx' user provided by the base image
+USER nginx
