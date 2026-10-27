@@ -1,0 +1,9 @@
+volumes:
+  weblogs:
+
+services:
+  web:
+    ports: !override
+      - "8081:80"
+    volumes:
+      - weblogs:/var/log/nginx
